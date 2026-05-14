@@ -17,6 +17,7 @@ import androidx.fragment.app.FragmentActivity;
 import androidx.lifecycle.Lifecycle;
 import androidx.test.core.app.ActivityScenario;
 import androidx.test.core.app.ApplicationProvider;
+import com.amwill.keeb.localai.LocalAiSettingsFragment;
 import com.anysoftkeyboard.AnySoftKeyboardRobolectricTestRunner;
 import com.anysoftkeyboard.RobolectricFragmentTestCase;
 import com.anysoftkeyboard.permissions.PermissionRequestHelper;
@@ -168,6 +169,47 @@ public class MainSettingsActivityTest {
             Assert.assertTrue(fragment instanceof QuickTextKeysBrowseFragment);
             BottomNavigationView bottomNav = activity.findViewById(R.id.bottom_navigation);
             Assert.assertEquals(R.id.quickTextKeysBrowseFragment, bottomNav.getSelectedItemId());
+          });
+    }
+  }
+
+  @Test
+  public void testLocalAiVoiceDeepLinkPassed() {
+    try (ActivityScenario<FragmentActivity> activityController =
+        ActivityScenario.launch(createAppShortcutIntent(R.string.deeplink_url_localai_voice))) {
+      activityController.moveToState(Lifecycle.State.RESUMED);
+
+      activityController.onActivity(
+          activity -> {
+            Fragment fragment =
+                RobolectricFragmentTestCase.getCurrentFragmentFromActivity(activity);
+
+            Assert.assertNotNull(fragment);
+            Assert.assertTrue(fragment instanceof LocalAiSettingsFragment);
+            BottomNavigationView bottomNav = activity.findViewById(R.id.bottom_navigation);
+            Assert.assertEquals(R.id.mainFragment, bottomNav.getSelectedItemId());
+          });
+    }
+  }
+
+  @Test
+  public void testLocalAiVoiceActionPassed() {
+    Intent intent =
+        new Intent(
+            MainSettingsActivity.ACTION_OPEN_LOCAL_AI_VOICE_SETTINGS,
+            Uri.parse(getApplicationContext().getString(R.string.deeplink_url_localai_voice)),
+            getApplicationContext(),
+            MainSettingsActivity.class);
+    try (ActivityScenario<FragmentActivity> activityController = ActivityScenario.launch(intent)) {
+      activityController.moveToState(Lifecycle.State.RESUMED);
+
+      activityController.onActivity(
+          activity -> {
+            Fragment fragment =
+                RobolectricFragmentTestCase.getCurrentFragmentFromActivity(activity);
+
+            Assert.assertNotNull(fragment);
+            Assert.assertTrue(fragment instanceof LocalAiSettingsFragment);
           });
     }
   }

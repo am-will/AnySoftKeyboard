@@ -42,9 +42,10 @@
     <string name="deeplink_url_themes">anysoftkeyboard://settings/ui/themes</string>
     <string name="deeplink_url_quick_text">anysoftkeyboard://settings/quick_text</string>
     <string name="deeplink_url_gestures">anysoftkeyboard://settings/gestures</string>
+    <string name="deeplink_url_localai_voice">anysoftkeyboard://settings/localai_voice</string>
     <string name="deeplink_url_dev_tools">anysoftkeyboard://settings/dev_tools</string>
 
     <string name="label_subtype_generic">%s</string>
 
-    <string name="developer_strict_mode_change_restart">Restart AnySoftKeyboard to take affect!</string>
+    <string name="developer_strict_mode_change_restart">Restart KEEB to take affect!</string>
 </resources>

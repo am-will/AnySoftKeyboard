@@ -11,6 +11,8 @@
     <!-- http://d.android.com/guide/practices/screens_support.html read about legacy. -->
 
     <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.INTERNET" />
     <!-- required for the user dictionary (long press a word in the suggestions bar) -->
     <uses-permission android:name="android.permission.READ_USER_DICTIONARY" />
     <uses-permission android:name="android.permission.WRITE_USER_DICTIONARY" />
@@ -86,6 +88,23 @@
             android:roundIcon="@mipmap/ic_launcher_round"
             android:theme="@style/Theme.AskApp"
             android:windowSoftInputMode="adjustPan" />
+        <activity-alias
+            android:name="com.anysoftkeyboard.ui.settings.LocalAiVoiceSettingsActivity"
+            android:exported="true"
+            android:label="@string/localai_voice_settings_tile"
+            android:targetActivity="com.anysoftkeyboard.ui.settings.MainSettingsActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <action android:name="com.amwill.keeb.action.OPEN_LOCAL_AI_VOICE_SETTINGS" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+
+                <data
+                    android:host="settings"
+                    android:path="/localai_voice"
+                    android:scheme="anysoftkeyboard" />
+            </intent-filter>
+        </activity-alias>
         <activity
             android:name="com.anysoftkeyboard.ui.settings.setup.SetupWizardActivity"
             android:icon="@mipmap/ic_launcher"

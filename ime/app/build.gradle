@@ -3,7 +3,7 @@ import java.util.stream.Collectors
 
 group 'net.evendanan'
 
-ext.override_app_id = 'com.menny.android.anysoftkeyboard'
+ext.override_app_id = 'com.amwill.keeb'
 ext.shouldBePublished = true
 ext.override_release_key_alias = 'anysoftkeyboard'
 ext.closedTestingTrackName = 'alpha'
@@ -112,7 +112,7 @@ dependencies {
     implementation project(':ime:pixel')
     implementation project(':ime:remote')
     implementation project(':ime:gesturetyping')
-    implementation project(':ime:voiceime')
+    implementation project(':ime:localai')
     implementation project(':ime:chewbacca')
     implementation project(':ime:permissions')
     implementation project(':ime:fileprovider')

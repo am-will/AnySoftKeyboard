@@ -121,6 +121,9 @@ public class MainFragment extends Fragment {
         view.findViewById(R.id.no_notifications_permission_click_here_root);
     mNoNotificationPermissionView.setOnClickListener(
         v -> AnyApplication.notifier(requireContext()).askForNotificationPostPermission(this));
+    view.findViewById(R.id.localai_voice_settings_card)
+        .setOnClickListener(
+            v -> Navigation.findNavController(v).navigate(R.id.localAiSettingsFragment));
 
     setHasOptionsMenu(true);
   }

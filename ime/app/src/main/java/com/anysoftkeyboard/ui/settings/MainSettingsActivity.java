@@ -18,11 +18,13 @@ package com.anysoftkeyboard.ui.settings;
 
 import android.Manifest;
 import android.content.Intent;
+import android.net.Uri;
 import android.os.Bundle;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 import androidx.navigation.NavController;
+import androidx.navigation.NavDestination;
 import androidx.navigation.fragment.NavHostFragment;
 import androidx.navigation.ui.NavigationUI;
 import com.anysoftkeyboard.notification.NotificationIds;
@@ -41,10 +43,13 @@ public class MainSettingsActivity extends AppCompatActivity {
       "ACTION_REQUEST_PERMISSION_ACTIVITY";
   public static final String ACTION_REVOKE_PERMISSION_ACTIVITY =
       "ACTION_REVOKE_PERMISSION_ACTIVITY";
+  public static final String ACTION_OPEN_LOCAL_AI_VOICE_SETTINGS =
+      "com.amwill.keeb.action.OPEN_LOCAL_AI_VOICE_SETTINGS";
   public static final String EXTRA_KEY_ACTION_REQUEST_PERMISSION_ACTIVITY =
       "EXTRA_KEY_ACTION_REQUEST_PERMISSION_ACTIVITY";
 
   private CharSequence mTitle;
+  private NavController mNavController;
 
   @Override
   protected void onCreate(Bundle icicle) {
@@ -53,13 +58,14 @@ public class MainSettingsActivity extends AppCompatActivity {
 
     mTitle = getTitle();
 
-    final NavController navController =
+    mNavController =
         ((NavHostFragment)
                 Objects.requireNonNull(
                     getSupportFragmentManager().findFragmentById(R.id.nav_host_fragment)))
             .getNavController();
     final BottomNavigationView bottomNavigationView = findViewById(R.id.bottom_navigation);
-    NavigationUI.setupWithNavController(bottomNavigationView, navController);
+    NavigationUI.setupWithNavController(bottomNavigationView, mNavController);
+    handleNavigationIntent(getIntent());
   }
 
   @Override
@@ -73,7 +79,22 @@ public class MainSettingsActivity extends AppCompatActivity {
   @Override
   protected void onNewIntent(Intent intent) {
     super.onNewIntent(intent);
+    setIntent(intent);
     handlePermissionRequest(intent);
+    handleNavigationIntent(intent);
+  }
+
+  private void handleNavigationIntent(Intent intent) {
+    if (intent == null || mNavController == null) return;
+    Uri uri = intent.getData();
+    if (ACTION_OPEN_LOCAL_AI_VOICE_SETTINGS.equals(intent.getAction())
+        || (uri != null && getString(R.string.deeplink_url_localai_voice).equals(uri.toString()))) {
+      NavDestination currentDestination = mNavController.getCurrentDestination();
+      if (currentDestination == null
+          || currentDestination.getId() != R.id.localAiSettingsFragment) {
+        mNavController.navigate(R.id.localAiSettingsFragment);
+      }
+    }
   }
 
   private void handlePermissionRequest(Intent intent) {

@@ -31,6 +31,15 @@
             app:popExitAnim="@anim/slide_out_right" />
     </fragment>
     <fragment
+        android:id="@+id/localAiSettingsFragment"
+        android:name="com.amwill.keeb.localai.LocalAiSettingsFragment"
+        android:label="LocalAI Voice">
+        <deepLink
+            android:id="@+id/deepLink_localai_voice"
+            app:action="android.intent.action.VIEW"
+            app:uri="@string/deeplink_url_localai_voice" />
+    </fragment>
+    <fragment
         android:id="@+id/languageSettingsFragment"
         android:name="com.anysoftkeyboard.ui.settings.LanguageSettingsFragment"
         android:label="LanguageSettingsFragment">

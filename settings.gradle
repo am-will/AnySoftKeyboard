@@ -1,4 +1,4 @@
-rootProject.name = 'AnySoftKeyboard'
+rootProject.name = 'KEEB LocalAI Keyboard'
 
 include ':api'
 
@@ -89,6 +89,7 @@ include ':ime:dictionaries', ':ime:dictionaries:jnidictionaryv1', ':ime:dictiona
 include ':ime:pixel', ':ime:overlay'
 include ':ime:gesturetyping'
 include ':ime:voiceime'
+include ':ime:localai'
 include ':ime:releaseinfo'
 include ':ime:chewbacca'
 include ':ime:permissions'

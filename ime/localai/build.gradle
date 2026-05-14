@@ -1,0 +1,25 @@
+apply plugin: 'com.android.library'
+apply plugin: 'org.jetbrains.kotlin.android'
+
+apply from: "${rootDir}/gradle/android_general.gradle"
+
+android {
+    namespace 'com.amwill.keeb.localai'
+
+    ndkVersion '29.0.14206865'
+
+    externalNativeBuild {
+        cmake {
+            path file('src/main/cpp/CMakeLists.txt')
+            version '3.22.1'
+        }
+    }
+}
+
+dependencies {
+    implementation libs.androidx.annotation
+    implementation libs.androidx.fragment
+    implementation libs.androidx.appcompat
+
+    testImplementation libs.junit
+}

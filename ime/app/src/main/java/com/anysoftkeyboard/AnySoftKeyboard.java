@@ -19,19 +19,27 @@ package com.anysoftkeyboard;
 import android.content.Context;
 import android.content.Intent;
 import android.content.res.Configuration;
+import android.graphics.Color;
+import android.graphics.Typeface;
 import android.net.Uri;
 import android.os.Build;
 import android.os.IBinder;
 import android.text.TextUtils;
 import android.util.Log;
+import android.view.Gravity;
 import android.view.KeyEvent;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.Window;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.ExtractedText;
 import android.view.inputmethod.InputConnection;
 import android.view.inputmethod.InputMethodManager;
+import android.widget.Button;
 import android.widget.EditText;
+import android.widget.LinearLayout;
+import android.widget.ProgressBar;
+import android.widget.TextView;
 import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -57,12 +65,11 @@ import com.anysoftkeyboard.keyboards.KeyboardSwitcher.NextKeyboardType;
 import com.anysoftkeyboard.keyboards.views.AnyKeyboardView;
 import com.anysoftkeyboard.prefs.AnimationsLevel;
 import com.anysoftkeyboard.rx.GenericOnError;
-import com.anysoftkeyboard.ui.VoiceInputNotInstalledActivity;
 import com.anysoftkeyboard.ui.dev.DevStripActionProvider;
 import com.anysoftkeyboard.ui.dev.DeveloperUtils;
 import com.anysoftkeyboard.ui.settings.MainSettingsActivity;
 import com.anysoftkeyboard.utils.IMEUtil;
-import com.google.android.voiceime.VoiceRecognitionTrigger;
+import com.amwill.keeb.localai.AskLocalAiVoiceBridge;
 import com.menny.android.anysoftkeyboard.AnyApplication;
 import com.menny.android.anysoftkeyboard.BuildConfig;
 import com.menny.android.anysoftkeyboard.R;
@@ -89,7 +96,14 @@ public abstract class AnySoftKeyboard extends AnySoftKeyboardColorizeNavBar {
   private CondenseType mPrefKeyboardInCondensedPortraitMode = CondenseType.None;
   private CondenseType mKeyboardInCondensedMode = CondenseType.None;
   private InputMethodManager mInputMethodManager;
-  private VoiceRecognitionTrigger mVoiceRecognitionTrigger;
+  private AskLocalAiVoiceBridge mLocalAiVoiceBridge;
+  @Nullable private View mLocalAiVoicePanel;
+  @Nullable private TextView mLocalAiVoiceStatus;
+  @Nullable private TextView mLocalAiVoiceLevelStatus;
+  @Nullable private ProgressBar mLocalAiVoiceLevelBar;
+  @Nullable private Button mLocalAiVoiceStopButton;
+  @Nullable private Button mLocalAiVoiceCancelButton;
+  private boolean mLocalAiVoiceCancelRequested;
   private View mFullScreenExtractView;
   private EditText mFullScreenExtractTextView;
 
@@ -241,7 +255,7 @@ public abstract class AnySoftKeyboard extends AnySoftKeyboardColorizeNavBar {
                 aBoolean -> mShowKeyboardIconInStatusBar = aBoolean,
                 GenericOnError.onError("settings_key_keyboard_icon_in_status_bar")));
 
-    mVoiceRecognitionTrigger = new VoiceRecognitionTrigger(this);
+    mLocalAiVoiceBridge = new AskLocalAiVoiceBridge(this);
 
     mDevToolsAction = new DevStripActionProvider(this);
   }
@@ -266,6 +280,9 @@ public abstract class AnySoftKeyboard extends AnySoftKeyboardColorizeNavBar {
               Toast.LENGTH_SHORT)
           .show();
     }
+
+    if (mLocalAiVoiceBridge != null) mLocalAiVoiceBridge.cancel();
+    removeLocalAiVoicePanel();
 
     super.onDestroy();
   }
@@ -302,10 +319,6 @@ public abstract class AnySoftKeyboard extends AnySoftKeyboardColorizeNavBar {
 
     super.onStartInputView(attribute, restarting);
 
-    if (mVoiceRecognitionTrigger != null) {
-      mVoiceRecognitionTrigger.onStartInputView();
-    }
-
     InputViewBinder inputView = getInputView();
     inputView.resetInputView();
     inputView.setKeyboardActionType(attribute.imeOptions);
@@ -330,6 +343,12 @@ public abstract class AnySoftKeyboard extends AnySoftKeyboardColorizeNavBar {
   @Override
   public void onFinishInputView(boolean finishingInput) {
     super.onFinishInputView(finishingInput);
+
+    if (mLocalAiVoiceBridge != null) {
+      mLocalAiVoiceCancelRequested = true;
+      mLocalAiVoiceBridge.cancel();
+      removeLocalAiVoicePanel();
+    }
 
     getInputView().resetInputView();
     if (BuildConfig.DEBUG) {
@@ -492,15 +511,7 @@ public abstract class AnySoftKeyboard extends AnySoftKeyboardColorizeNavBar {
         sendDownUpKeyEvents(KeyEvent.KEYCODE_MOVE_END);
         break;
       case KeyCodes.VOICE_INPUT:
-        if (mVoiceRecognitionTrigger.isInstalled()) {
-          mVoiceRecognitionTrigger.startVoiceRecognition(
-              getCurrentAlphabetKeyboard().getDefaultDictionaryLocale());
-        } else {
-          Intent voiceInputNotInstalledIntent =
-              new Intent(getApplicationContext(), VoiceInputNotInstalledActivity.class);
-          voiceInputNotInstalledIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-          startActivity(voiceInputNotInstalledIntent);
-        }
+        startLocalAiVoiceInput();
         break;
       case KeyCodes.CANCEL:
         if (!handleCloseRequest()) {
@@ -756,6 +767,269 @@ public abstract class AnySoftKeyboard extends AnySoftKeyboardColorizeNavBar {
   protected void setKeyboardForView(@NonNull AnyKeyboard currentKeyboard) {
     currentKeyboard.setCondensedKeys(mKeyboardInCondensedMode);
     super.setKeyboardForView(currentKeyboard);
+  }
+
+  private void startLocalAiVoiceInput() {
+    mLocalAiVoiceCancelRequested = false;
+    showLocalAiVoiceRecordingPanel(getText(R.string.localai_voice_state_starting));
+    mLocalAiVoiceBridge.start(
+        new AskLocalAiVoiceBridge.Listener() {
+          @Override
+          public void onState(@NonNull String message) {
+            ContextCompat.getMainExecutor(AnySoftKeyboard.this)
+                .execute(() -> updateLocalAiVoiceStatus(message));
+          }
+
+          @Override
+          public void onAudioLevel(int levelPercent, boolean speechDetected) {
+            ContextCompat.getMainExecutor(AnySoftKeyboard.this)
+                .execute(() -> updateLocalAiVoiceLevel(levelPercent, speechDetected));
+          }
+
+          @Override
+          public void onTranscript(@NonNull String transcript) {
+            ContextCompat.getMainExecutor(AnySoftKeyboard.this)
+                .execute(() -> commitLocalAiVoiceTranscript(transcript));
+          }
+
+          @Override
+          public void onTerminal(@NonNull String message) {
+            ContextCompat.getMainExecutor(AnySoftKeyboard.this)
+                .execute(
+                    () -> {
+                      if (mLocalAiVoiceCancelRequested
+                          && message.toLowerCase(Locale.ROOT).contains("canceled")) {
+                        removeLocalAiVoicePanel();
+                      } else {
+                        showLocalAiVoiceTerminal(message);
+                      }
+                    });
+          }
+
+          @Override
+          public void onSetupRequired(@NonNull String message) {
+            ContextCompat.getMainExecutor(AnySoftKeyboard.this)
+                .execute(() -> showLocalAiVoiceSetup(message));
+          }
+        });
+  }
+
+  private void showLocalAiVoiceRecordingPanel(@NonNull CharSequence message) {
+    ensureLocalAiVoicePanel();
+    updateLocalAiVoiceStatus(message);
+    setLocalAiVoiceLevelVisible(true);
+    updateLocalAiVoiceLevel(0, false);
+    setLocalAiVoiceButtons(
+        getText(R.string.localai_voice_stop),
+        view -> {
+          showLocalAiVoiceProcessing();
+          mLocalAiVoiceBridge.stop();
+        },
+        getText(android.R.string.cancel),
+        view -> cancelLocalAiVoiceInput());
+  }
+
+  private void showLocalAiVoiceProcessing() {
+    ensureLocalAiVoicePanel();
+    if (mLocalAiVoiceStatus != null) {
+      mLocalAiVoiceStatus.setText(R.string.localai_voice_state_processing);
+    }
+    setLocalAiVoiceLevelVisible(true);
+    updateLocalAiVoiceLevel(0, false);
+    if (mLocalAiVoiceLevelStatus != null) {
+      mLocalAiVoiceLevelStatus.setText(R.string.localai_voice_state_processing);
+    }
+    if (mLocalAiVoiceStopButton != null) mLocalAiVoiceStopButton.setEnabled(false);
+    if (mLocalAiVoiceCancelButton != null) mLocalAiVoiceCancelButton.setEnabled(true);
+  }
+
+  private void updateLocalAiVoiceStatus(@NonNull CharSequence message) {
+    ensureLocalAiVoicePanel();
+    if (mLocalAiVoiceStatus != null) {
+      mLocalAiVoiceStatus.setText(message);
+    }
+    if (message.toString().toLowerCase(Locale.ROOT).contains("transcribing")) {
+      showLocalAiVoiceProcessing();
+    }
+  }
+
+  private void updateLocalAiVoiceLevel(int levelPercent, boolean speechDetected) {
+    if (mLocalAiVoiceLevelBar != null) {
+      mLocalAiVoiceLevelBar.setProgress(Math.max(0, Math.min(100, levelPercent)));
+    }
+    if (mLocalAiVoiceLevelStatus != null) {
+      mLocalAiVoiceLevelStatus.setText(
+          speechDetected
+              ? R.string.localai_voice_sound_detected
+              : R.string.localai_voice_waiting_for_speech);
+    }
+  }
+
+  private void clearLocalAiVoiceLevel() {
+    if (mLocalAiVoiceLevelBar != null) {
+      mLocalAiVoiceLevelBar.setProgress(0);
+    }
+    if (mLocalAiVoiceLevelStatus != null) {
+      mLocalAiVoiceLevelStatus.setText("");
+    }
+    setLocalAiVoiceLevelVisible(false);
+  }
+
+  private void setLocalAiVoiceLevelVisible(boolean visible) {
+    int visibility = visible ? View.VISIBLE : View.GONE;
+    if (mLocalAiVoiceLevelBar != null) {
+      mLocalAiVoiceLevelBar.setVisibility(visibility);
+    }
+    if (mLocalAiVoiceLevelStatus != null) {
+      mLocalAiVoiceLevelStatus.setVisibility(visibility);
+    }
+  }
+
+  private void showLocalAiVoiceTerminal(@NonNull String message) {
+    ensureLocalAiVoicePanel();
+    updateLocalAiVoiceStatus(message);
+    clearLocalAiVoiceLevel();
+    setLocalAiVoiceButtons(
+        getText(R.string.localai_voice_retry),
+        view -> startLocalAiVoiceInput(),
+        getText(android.R.string.cancel),
+        view -> removeLocalAiVoicePanel());
+  }
+
+  private void showLocalAiVoiceSetup(@NonNull String message) {
+    ensureLocalAiVoicePanel();
+    updateLocalAiVoiceStatus(message);
+    clearLocalAiVoiceLevel();
+    setLocalAiVoiceButtons(
+        getText(R.string.localai_voice_open_settings),
+        view -> launchLocalAiVoiceSettings(),
+        getText(android.R.string.cancel),
+        view -> removeLocalAiVoicePanel());
+  }
+
+  private void ensureLocalAiVoicePanel() {
+    if (mLocalAiVoicePanel == null) {
+      mLocalAiVoicePanel = createLocalAiVoicePanel();
+    }
+    if (mLocalAiVoicePanel.getParent() == null && getInputViewContainer() != null) {
+      getInputViewContainer()
+          .addView(mLocalAiVoicePanel, Math.min(1, getInputViewContainer().getChildCount()));
+      getInputViewContainer().requestLayout();
+    }
+  }
+
+  @NonNull
+  private View createLocalAiVoicePanel() {
+    final int padding = (int) (12 * getResources().getDisplayMetrics().density);
+    final int smallPadding = (int) (6 * getResources().getDisplayMetrics().density);
+
+    LinearLayout root = new LinearLayout(this);
+    root.setOrientation(LinearLayout.VERTICAL);
+    root.setPadding(padding, smallPadding, padding, smallPadding);
+    root.setBackgroundColor(0xEE202124);
+    root.setGravity(Gravity.CENTER_VERTICAL);
+    root.setLayoutParams(
+        new ViewGroup.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+
+    TextView title = new TextView(this);
+    title.setText(R.string.localai_voice_title);
+    title.setTextColor(Color.WHITE);
+    title.setTypeface(Typeface.DEFAULT_BOLD);
+    title.setTextSize(14f);
+    root.addView(title);
+
+    mLocalAiVoiceStatus = new TextView(this);
+    mLocalAiVoiceStatus.setTextColor(Color.WHITE);
+    mLocalAiVoiceStatus.setTextSize(16f);
+    root.addView(mLocalAiVoiceStatus);
+
+    LinearLayout levelRow = new LinearLayout(this);
+    levelRow.setGravity(Gravity.CENTER_VERTICAL);
+    levelRow.setOrientation(LinearLayout.HORIZONTAL);
+    root.addView(levelRow);
+
+    mLocalAiVoiceLevelBar = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
+    mLocalAiVoiceLevelBar.setMax(100);
+    levelRow.addView(
+        mLocalAiVoiceLevelBar,
+        new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+
+    mLocalAiVoiceLevelStatus = new TextView(this);
+    mLocalAiVoiceLevelStatus.setTextColor(Color.WHITE);
+    mLocalAiVoiceLevelStatus.setTextSize(12f);
+    mLocalAiVoiceLevelStatus.setGravity(Gravity.CENTER_VERTICAL);
+    levelRow.addView(mLocalAiVoiceLevelStatus);
+
+    LinearLayout buttons = new LinearLayout(this);
+    buttons.setGravity(Gravity.END);
+    buttons.setOrientation(LinearLayout.HORIZONTAL);
+    root.addView(buttons);
+
+    mLocalAiVoiceCancelButton = new Button(this);
+    buttons.addView(mLocalAiVoiceCancelButton);
+
+    mLocalAiVoiceStopButton = new Button(this);
+    buttons.addView(mLocalAiVoiceStopButton);
+
+    return root;
+  }
+
+  private void setLocalAiVoiceButtons(
+      @NonNull CharSequence stopText,
+      @NonNull View.OnClickListener stopClick,
+      @NonNull CharSequence cancelText,
+      @NonNull View.OnClickListener cancelClick) {
+    if (mLocalAiVoiceStopButton != null) {
+      mLocalAiVoiceStopButton.setText(stopText);
+      mLocalAiVoiceStopButton.setEnabled(true);
+      mLocalAiVoiceStopButton.setOnClickListener(stopClick);
+    }
+    if (mLocalAiVoiceCancelButton != null) {
+      mLocalAiVoiceCancelButton.setText(cancelText);
+      mLocalAiVoiceCancelButton.setEnabled(true);
+      mLocalAiVoiceCancelButton.setOnClickListener(cancelClick);
+    }
+  }
+
+  private void cancelLocalAiVoiceInput() {
+    mLocalAiVoiceCancelRequested = true;
+    mLocalAiVoiceBridge.cancel();
+    removeLocalAiVoicePanel();
+  }
+
+  private void removeLocalAiVoicePanel() {
+    if (mLocalAiVoicePanel != null && mLocalAiVoicePanel.getParent() instanceof ViewGroup parent) {
+      parent.removeView(mLocalAiVoicePanel);
+      parent.requestLayout();
+    }
+  }
+
+  private void commitLocalAiVoiceTranscript(@NonNull String transcript) {
+    removeLocalAiVoicePanel();
+    if (TextUtils.isEmpty(transcript)) {
+      showLocalAiVoiceTerminal(getString(R.string.localai_voice_no_speech));
+      return;
+    }
+    InputConnection ic = getCurrentInputConnection();
+    if (ic == null) {
+      showLocalAiVoiceTerminal(getString(R.string.localai_voice_no_input_connection));
+      return;
+    }
+    ic.commitText(transcript, 1);
+    Toast.makeText(this, R.string.localai_voice_inserted, Toast.LENGTH_SHORT).show();
+  }
+
+  private void launchLocalAiVoiceSettings() {
+    removeLocalAiVoicePanel();
+    hideWindow();
+    startActivity(
+        new Intent(
+                MainSettingsActivity.ACTION_OPEN_LOCAL_AI_VOICE_SETTINGS,
+                Uri.parse(getString(R.string.deeplink_url_localai_voice)),
+                getApplicationContext(),
+                MainSettingsActivity.class)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
   }
 
   private void showLanguageSelectionDialog() {
