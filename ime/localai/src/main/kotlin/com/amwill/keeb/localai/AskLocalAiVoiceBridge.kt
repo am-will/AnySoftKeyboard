@@ -1,9 +1,6 @@
 package com.amwill.keeb.localai
 
 import android.content.Context
-import com.amwill.keeb.models.LocalModelFileScanner
-import com.amwill.keeb.models.ModelInventory
-import com.amwill.keeb.models.SharedPreferencesModelInventoryStore
 import com.amwill.keeb.models.WhisperModel
 import com.amwill.keeb.voice.AndroidMicrophonePermissionChecker
 import com.amwill.keeb.voice.AndroidPcm16AudioRecorder
@@ -12,7 +9,6 @@ import com.amwill.keeb.voice.VoiceActivityDetector
 import com.amwill.keeb.voice.VoiceInputController
 import com.amwill.keeb.voice.VoiceInsertionFormatter
 import com.amwill.keeb.voice.VoiceState
-import java.io.File
 
 class AskLocalAiVoiceBridge(context: Context) {
     interface Listener {
@@ -24,7 +20,6 @@ class AskLocalAiVoiceBridge(context: Context) {
     }
 
     private val appContext = context.applicationContext
-    private val modelDirectory = File(appContext.filesDir, MODEL_DIRECTORY)
     @Volatile private var controller: VoiceInputController? = null
     @Volatile private var worker: Thread? = null
 
@@ -76,12 +71,10 @@ class AskLocalAiVoiceBridge(context: Context) {
         controller?.cancel()
     }
 
-    fun modelDirectoryPath(): String = modelDirectory.absolutePath
+    fun modelDirectoryPath(): String = LocalAiWhisperModelSelection.modelDirectory(appContext).absolutePath
 
     private fun selectedModel(): WhisperModel? {
-        val store = SharedPreferencesModelInventoryStore(appContext)
-        val installed = LocalModelFileScanner(modelDirectory).installedRecords()
-        return ModelInventory(persistedRecords = installed + store.load()).selectedModel()
+        return LocalAiWhisperModelSelection.selectedModel(appContext)
     }
 
     private fun VoiceState.message(): String = when (this) {
@@ -93,9 +86,5 @@ class AskLocalAiVoiceBridge(context: Context) {
         VoiceState.Canceled -> "LocalAI voice input canceled."
         is VoiceState.ReadyToInsert -> "Local transcript ready."
         is VoiceState.Error -> message
-    }
-
-    private companion object {
-        const val MODEL_DIRECTORY = "whisper-models"
     }
 }

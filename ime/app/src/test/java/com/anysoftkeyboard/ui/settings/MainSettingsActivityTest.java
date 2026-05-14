@@ -215,6 +215,27 @@ public class MainSettingsActivityTest {
   }
 
   @Test
+  public void testLocalAiVoiceAliasPassed() {
+    Intent intent =
+        new Intent()
+            .setClassName(
+                getApplicationContext(),
+                "com.anysoftkeyboard.ui.settings.LocalAiVoiceSettingsActivity");
+    try (ActivityScenario<FragmentActivity> activityController = ActivityScenario.launch(intent)) {
+      activityController.moveToState(Lifecycle.State.RESUMED);
+
+      activityController.onActivity(
+          activity -> {
+            Fragment fragment =
+                RobolectricFragmentTestCase.getCurrentFragmentFromActivity(activity);
+
+            Assert.assertNotNull(fragment);
+            Assert.assertTrue(fragment instanceof LocalAiSettingsFragment);
+          });
+    }
+  }
+
+  @Test
   @Config(sdk = Build.VERSION_CODES.M)
   public void testContactsPermissionRequestedWhenNotGranted() {
     Shadows.shadowOf((Application) ApplicationProvider.getApplicationContext())

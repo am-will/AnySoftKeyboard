@@ -60,6 +60,20 @@
                 android:resource="@xml/method" />
         </service>
 
+        <service
+            android:name="com.amwill.keeb.localai.LocalAiRecognitionService"
+            android:exported="true"
+            android:label="@string/localai_recognition_service_label"
+            android:permission="android.permission.BIND_SPEECH_RECOGNIZER">
+            <intent-filter>
+                <action android:name="android.speech.RecognitionService" />
+            </intent-filter>
+
+            <meta-data
+                android:name="android.speech"
+                android:resource="@xml/localai_recognition_service" />
+        </service>
+
         <!-- ui activities -->
         <!-- settings ui activities -->
         <!-- this is just a proxy activity, it does nothing but direct to the actual setting activity

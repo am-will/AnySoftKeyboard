@@ -45,6 +45,8 @@ public class MainSettingsActivity extends AppCompatActivity {
       "ACTION_REVOKE_PERMISSION_ACTIVITY";
   public static final String ACTION_OPEN_LOCAL_AI_VOICE_SETTINGS =
       "com.amwill.keeb.action.OPEN_LOCAL_AI_VOICE_SETTINGS";
+  private static final String LOCAL_AI_VOICE_SETTINGS_ACTIVITY =
+      "com.anysoftkeyboard.ui.settings.LocalAiVoiceSettingsActivity";
   public static final String EXTRA_KEY_ACTION_REQUEST_PERMISSION_ACTIVITY =
       "EXTRA_KEY_ACTION_REQUEST_PERMISSION_ACTIVITY";
 
@@ -88,7 +90,9 @@ public class MainSettingsActivity extends AppCompatActivity {
     if (intent == null || mNavController == null) return;
     Uri uri = intent.getData();
     if (ACTION_OPEN_LOCAL_AI_VOICE_SETTINGS.equals(intent.getAction())
-        || (uri != null && getString(R.string.deeplink_url_localai_voice).equals(uri.toString()))) {
+        || (uri != null && getString(R.string.deeplink_url_localai_voice).equals(uri.toString()))
+        || (intent.getComponent() != null
+            && LOCAL_AI_VOICE_SETTINGS_ACTIVITY.equals(intent.getComponent().getClassName()))) {
       NavDestination currentDestination = mNavController.getCurrentDestination();
       if (currentDestination == null
           || currentDestination.getId() != R.id.localAiSettingsFragment) {

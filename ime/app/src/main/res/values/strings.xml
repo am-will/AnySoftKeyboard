@@ -26,6 +26,7 @@
     <string name="language_tweaks_settings_tile">Tweaks and more.</string>
     <string name="localai_voice_settings_tile">LocalAI Voice</string>
     <string name="localai_voice_settings_summary">Download, verify, select, or delete on-device Whisper models.</string>
+    <string name="localai_recognition_service_label">KEEB LocalAI Whisper</string>
 
     <!-- UI root menu -->
     <string name="ui_root_tile">UI</string>
